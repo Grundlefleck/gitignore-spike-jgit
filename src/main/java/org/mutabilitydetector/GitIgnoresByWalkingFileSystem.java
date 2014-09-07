@@ -12,15 +12,15 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-class GitIgnores implements VcsIgnores {
+class GitIgnoresByWalkingFileSystem implements VcsIgnores {
 
     private final Set<String> unignoredResources;
 
-    public GitIgnores(Set<String> unignoredResources) {
+    public GitIgnoresByWalkingFileSystem(Set<String> unignoredResources) {
         this.unignoredResources = Collections.unmodifiableSet(unignoredResources);
     }
 
-    static GitIgnores fromRootDir(String path) throws IOException {
+    static GitIgnoresByWalkingFileSystem fromRootDir(String path) throws IOException {
         File gitDir = new File(path + "/.git");
         Repository repository = new FileRepository(gitDir);
         FileTreeIterator fileTreeIterator = new FileTreeIterator(repository);
@@ -34,7 +34,7 @@ class GitIgnores implements VcsIgnores {
             unignoredResources.add(tw.getPathString());
 
         }
-        return new GitIgnores(unignoredResources);
+        return new GitIgnoresByWalkingFileSystem(unignoredResources);
     }
 
     public boolean isIgnored(String relativePath) {
