@@ -1,0 +1,11 @@
+*.iml
+*.ipr
+*.iws
+
+target
+
+
+src/main/resources/ignored-directory/ignored-file-in-ignored-dir.txt
+src/main/resources/ignored.txt
+src/main/resources/ignored-*.txt
+
