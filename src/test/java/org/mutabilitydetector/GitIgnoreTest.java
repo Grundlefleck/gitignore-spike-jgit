@@ -1,25 +1,33 @@
 package org.mutabilitydetector;
 
-import org.eclipse.jgit.ignore.IgnoreRule;
-import org.eclipse.jgit.internal.storage.file.FileRepository;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.treewalk.FileTreeIterator;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class GitIgnoreTest {
 
-    @Test public void unmatchedFilesAreNotConsideredIgnored() throws URISyntaxException, IOException {
-        URL resource = getClass().getResource("/ignored.txt");
-        URI thisSourceFile = resource.toURI();
-        System.out.println(new File("/home/gallan/dev/source/github/gitignore-spike/").getAbsolutePath());
-        Repository repository = new FileRepository(new File(""));
-        Repository unpushedRepository = new FileRepository(new File(""));
-        FileTreeIterator fileTreeIterator = new FileTreeIterator(repository);
+    @Test public void unmatchedFilesAreNotConsideredIgnored() throws IOException {
+        ensureIgnoredFilesExist();
+
+        VcsIgnores gitIgnores = GitIgnores.fromRootDir(new File("").getAbsolutePath());
+
+        assertTrue(gitIgnores.isIgnored("src/main/resources/ignored.txt"));
+        assertFalse(gitIgnores.isIgnored("src/main/resources/not-ignored.txt"));
+        assertTrue(gitIgnores.isIgnored("src/main/resources/ignored-directory"));
+        assertTrue(gitIgnores.isIgnored("src/main/resources/ignored-directory/ignored-file-in-ignored-dir.txt"));
+        assertTrue(gitIgnores.isIgnored("src/main/resources/ignored-directory/unignored-file-in-ignored-dir.txt"));
+        assertTrue(gitIgnores.isIgnored("src/main/resources/ignored-with-wildcard.txt"));
+    }
+
+    private void ensureIgnoredFilesExist() throws IOException {
+        new File("src/main/resources/ignored.txt").createNewFile();
+        new File("src/main/resources/ignored-with-wildcard.txt").createNewFile();
+        new File("src/main/resources/ignored-directory").mkdirs();
+        new File("src/main/resources/ignored-directory/ignored-file-in-ignored-dir.txt").createNewFile();
+        new File("src/main/resources/ignored-directory/not-ignored-file-in-ignored-dir.txt").createNewFile();
     }
 }
