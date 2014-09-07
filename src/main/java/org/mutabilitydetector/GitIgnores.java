@@ -31,7 +31,6 @@ class GitIgnores implements VcsIgnores {
 
         Set<String> unignoredResources = new HashSet<String>();
         while (tw.next()) {
-            System.out.println(tw.getPathString());
             unignoredResources.add(tw.getPathString());
 
         }
