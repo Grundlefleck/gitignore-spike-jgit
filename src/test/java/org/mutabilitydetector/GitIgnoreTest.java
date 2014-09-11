@@ -1,16 +1,16 @@
 package org.mutabilitydetector;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mutabilitydetector.GitIgnoreTest.VcsIgnoredMatcher.ignoredBy;
+import org.hamcrest.Description;
+import org.hamcrest.TypeSafeDiagnosingMatcher;
+import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 
-import org.hamcrest.Description;
-import org.hamcrest.TypeSafeDiagnosingMatcher;
-import org.junit.Test;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mutabilitydetector.GitIgnoreTest.VcsIgnoredMatcher.ignoredBy;
 
 public class GitIgnoreTest {
 
@@ -30,7 +30,7 @@ public class GitIgnoreTest {
     	assertThat("src/main/resources/ignored.txt", is(ignoredBy(gitIgnores)));
     	assertThat("src/main/resources/ignored.txt", is(ignoredBy(gitIgnores)));
     	assertThat("src/main/resources/not-ignored.txt", is(not(ignoredBy(gitIgnores))));
-    	
+
     	assertThat("src/main/resources/ignored-directory", is(ignoredBy(gitIgnores)));
     	assertThat("src/main/resources/ignored-directory/ignored-file-in-ignored-dir.txt", is(ignoredBy(gitIgnores)));
     	assertThat("src/main/resources/ignored-directory/not-ignored-file-in-ignored-dir.txt", is(ignoredBy(gitIgnores)));

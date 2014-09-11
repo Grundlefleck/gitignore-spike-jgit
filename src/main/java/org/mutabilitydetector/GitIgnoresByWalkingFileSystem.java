@@ -34,6 +34,7 @@ class GitIgnoresByWalkingFileSystem implements VcsIgnores {
             unignoredResources.add(tw.getPathString());
 
         }
+
         return new GitIgnoresByWalkingFileSystem(unignoredResources);
     }
 
