@@ -4,6 +4,7 @@
 *.iws
 .classpath
 .project
+.settings/
 
 target
 
