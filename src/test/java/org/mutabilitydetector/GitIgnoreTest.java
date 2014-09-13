@@ -2,7 +2,9 @@ package org.mutabilitydetector;
 
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,6 +16,8 @@ import static org.mutabilitydetector.GitIgnoreTest.VcsIgnoredMatcher.ignoredBy;
 
 public class GitIgnoreTest {
 
+    @Rule public TemporaryFolder folder = new TemporaryFolder();
+
     @Test public void honoursGitIgnoreConfig_WalkingFileSystemImplementation() throws IOException {
         ensureIgnoredFilesExist();
         VcsIgnores gitIgnores = GitIgnoresByWalkingFileSystem.fromRootDir(new File("").getAbsolutePath());
@@ -24,6 +28,16 @@ public class GitIgnoreTest {
     	ensureIgnoredFilesExist();
     	VcsIgnores gitIgnores = GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter.fromRootDir(new File("").getAbsolutePath());
     	assertExpectedIgnores(gitIgnores);
+    }
+
+    @Test public void returnsFalseWhenNoGitIgnoreFileExistsAnywhere() throws Exception {
+        folder.create();
+        File projectFolder = folder.newFolder("not-a-git-project");
+        folder.newFile("not-a-git-project/some-file.txt");
+
+        VcsIgnores gitIgnores = GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter.fromRootDir(projectFolder.getAbsolutePath());
+
+        assertThat("not-a-git-project/some-file.txt", is(not(ignoredBy(gitIgnores))));
     }
     
     private void assertExpectedIgnores(VcsIgnores gitIgnores) {
