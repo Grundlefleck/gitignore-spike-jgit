@@ -20,22 +20,25 @@ class GitIgnoresByWalkingFileSystem implements VcsIgnores {
         this.unignoredResources = Collections.unmodifiableSet(unignoredResources);
     }
 
-    static GitIgnoresByWalkingFileSystem fromRootDir(String path) throws IOException {
-        File gitDir = new File(path + "/.git");
-        Repository repository = new FileRepository(gitDir);
-        FileTreeIterator fileTreeIterator = new FileTreeIterator(repository);
-        TreeWalk tw = new TreeWalk(repository);
-        tw.setRecursive(true);
-        tw.addTree(fileTreeIterator);
-        tw.setFilter(new NotIgnoredFilter(0));
+    static GitIgnoresByWalkingFileSystem fromRootDir(String path) {
+        try {
+            File gitDir = new File(path + "/.git");
+            Repository repository = new FileRepository(gitDir);
+            FileTreeIterator fileTreeIterator = new FileTreeIterator(repository);
+            TreeWalk tw = new TreeWalk(repository);
+            tw.setRecursive(true);
+            tw.addTree(fileTreeIterator);
+            tw.setFilter(new NotIgnoredFilter(0));
 
-        Set<String> unignoredResources = new HashSet<String>();
-        while (tw.next()) {
-            unignoredResources.add(tw.getPathString());
+            Set<String> unignoredResources = new HashSet<String>();
+            while (tw.next()) {
+                unignoredResources.add(tw.getPathString());
 
+            }
+            return new GitIgnoresByWalkingFileSystem(unignoredResources);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-
-        return new GitIgnoresByWalkingFileSystem(unignoredResources);
     }
 
     public boolean isIgnored(String relativePath) {

@@ -2,35 +2,40 @@ package org.mutabilitydetector;
 
 import org.eclipse.jgit.ignore.IgnoreNode;
 
+import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 
-import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.NOT_IGNORED;
 import static org.eclipse.jgit.lib.Constants.GITIGNORE_FILENAME;
 
-public final class GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter implements VcsIgnores {
+public class GitIgnoresByGlob implements VcsIgnores {
+    private final File rootDirectory;
 
-	private final File rootDirectory;
-
-	private GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter(File rootDirectory) {
-		this.rootDirectory = rootDirectory;
-	}
-
-    public static VcsIgnores fromRootDir(String absolutePath) {
-        return new GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter(new File(absolutePath));
+    public GitIgnoresByGlob(File rootDirectory) {
+        this.rootDirectory = rootDirectory;
     }
 
-	@Override
-	public boolean isIgnored(String fileToCheck) {
+    public static VcsIgnores fromRootDir(String absolutePath) {
+        return new GitIgnoresByGlob(new File(absolutePath));
+    }
+
+
+    @Override
+    public boolean isIgnored(String fileToCheck) {
         File absolutePath = new File(rootDirectory, fileToCheck);
         File directoryContainingFileToCheck = absolutePath.isDirectory() ? absolutePath : absolutePath.getParentFile();
         Iterator<File> pathSegments = createPathSegmentsFromRootTo(directoryContainingFileToCheck);
-		return descendInSearchOfGitIgnoreFile(new File(fileToCheck), pathSegments);
+        return descendInSearchOfGitIgnoreFile(new File(fileToCheck), pathSegments);
     }
 
     private Iterator<File> createPathSegmentsFromRootTo(File file) {
@@ -71,14 +76,49 @@ public final class GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter implements Vcs
         }
     }
 
-    private MatchResult getMatchResult(File fileToCheck, File currentGitIgnore) {
-        try (InputStream in = new FileInputStream(currentGitIgnore)) {
+    private IgnoreNode.MatchResult getMatchResult(File fileToCheck, File currentGitIgnore) {
+        InputStream in = null;
+        try {
+            in = new FileInputStream(currentGitIgnore);
             IgnoreNode ignoreNode = new IgnoreNode();
             ignoreNode.parse(in);
             return ignoreNode.isIgnored(fileToCheck.getPath(), fileToCheck.isDirectory());
         } catch (IOException e) {
             return NOT_IGNORED;
+        } finally {
+           closeQuietly(in);
+        }
+    }
+
+    private void closeQuietly(Closeable closeable) {
+        try {
+            if (closeable != null) {
+                closeable.close();
+            }
+        } catch (IOException e) {
+            // Ignore, as with Apache Commons IOUtils.closeQuietly.
+        }
+    }
+
+    private static List<IgnoreRule> ignoreEntries(InputStream input) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(input, Charset.forName("UTF-8")));
+        List<IgnoreRule> rules = new ArrayList<IgnoreRule>();
+        String text;
+        while ((text = br.readLine()) != null) {
+            text = text.trim();
+            if (text.length() > 0 && !text.startsWith("#") && !text.equals("/")) {
+                rules.add(new IgnoreRule(text));
+            }
+        }
+        return rules;
+    }
+
+    private static final class IgnoreRule {
+
+        protected IgnoreRule(String text) {
+
         }
     }
 
 }
+

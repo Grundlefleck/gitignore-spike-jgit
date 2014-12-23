@@ -12,22 +12,18 @@ import java.io.IOException;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mutabilitydetector.GitIgnoreTest.VcsIgnoredMatcher.ignoredBy;
+import static org.mutabilitydetector.GitIgnoreTestFrame.VcsIgnoredMatcher.ignoredBy;
 
-public class GitIgnoreTest {
+public abstract class GitIgnoreTestFrame {
 
     @Rule public TemporaryFolder folder = new TemporaryFolder();
 
-    @Test public void honoursGitIgnoreConfig_WalkingFileSystemImplementation() throws IOException {
-        ensureIgnoredFilesExist();
-        VcsIgnores gitIgnores = GitIgnoresByWalkingFileSystem.fromRootDir(new File("").getAbsolutePath());
-        assertExpectedIgnores(gitIgnores);
-    }
+    abstract VcsIgnores provideImplementation(String path);
 
-    @Test public void honoursGitIgnoreConfig_ApplyingIgnoreRule() throws IOException {
-    	ensureIgnoredFilesExist();
-    	VcsIgnores gitIgnores = GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter.fromRootDir(new File("").getAbsolutePath());
-    	assertExpectedIgnores(gitIgnores);
+    @Test public void honoursGitIgnoreConfig() throws IOException {
+        ensureIgnoredFilesExist();
+        VcsIgnores gitIgnores = provideImplementation(new File("").getAbsolutePath());
+        assertExpectedIgnores(gitIgnores);
     }
 
     @Test public void returnsFalseWhenNoGitIgnoreFileExistsAnywhere() throws Exception {
@@ -35,10 +31,23 @@ public class GitIgnoreTest {
         File projectFolder = folder.newFolder("not-a-git-project");
         folder.newFile("not-a-git-project/some-file.txt");
 
-        VcsIgnores gitIgnores = GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter.fromRootDir(projectFolder.getAbsolutePath());
+        VcsIgnores gitIgnores = provideImplementation(projectFolder.getAbsolutePath());
 
         assertThat("not-a-git-project/some-file.txt", is(not(ignoredBy(gitIgnores))));
     }
+
+
+    // honours negation
+    // honours comments
+    // honours escaping comments
+    // ignores trailing spaces
+    // can escape negation
+    // removes ending slash from a pattern
+    // ignores everything in .git directory
+    // honours two asterisk for arbitrary depth (**)
+
+
+
     
     private void assertExpectedIgnores(VcsIgnores gitIgnores) {
     	assertThat("src/main/resources/ignored.txt", is(ignoredBy(gitIgnores)));
@@ -61,6 +70,24 @@ public class GitIgnoreTest {
         new File("src/main/resources/ignored-directory/ignored-file-in-ignored-dir.txt").createNewFile();
         new File("src/main/resources/ignored-directory/not-ignored-file-in-ignored-dir.txt").createNewFile();
         new File("src/main/resources/not-ignored-directory/ignored-in-not-ignored-dir.txt").createNewFile();
+    }
+
+    public static class WalkingFileSystem extends GitIgnoreTestFrame {
+        @Override VcsIgnores provideImplementation(String path) {
+            return GitIgnoresByWalkingFileSystem.fromRootDir(path);
+        }
+    }
+
+    public static class JGit extends GitIgnoreTestFrame {
+        @Override VcsIgnores provideImplementation(String path) {
+            return GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter.fromRootDir(path);
+        }
+    }
+
+    public static class ByGlob extends GitIgnoreTestFrame {
+        @Override VcsIgnores provideImplementation(String path) {
+            return GitIgnoresByGlob.fromRootDir(path);
+        }
     }
     
     public static class VcsIgnoredMatcher extends TypeSafeDiagnosingMatcher<String> {
