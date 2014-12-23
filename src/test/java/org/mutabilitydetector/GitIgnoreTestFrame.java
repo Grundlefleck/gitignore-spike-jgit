@@ -87,7 +87,7 @@ public abstract class GitIgnoreTestFrame {
     @Test public void ignoresDirectoryWithTrailingSlash() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
 
-        gitFolder.mkdirIn("ignored-directory");
+        gitFolder.mkdir("ignored-directory");
         gitFolder.appendToGitignore("/ignored-directory/");
 
         VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
@@ -98,7 +98,7 @@ public abstract class GitIgnoreTestFrame {
     @Test public void ignoresFilesWithinIgnoredDirectory() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
 
-        gitFolder.mkdirIn("ignored-directory");
+        gitFolder.mkdir("ignored-directory");
         gitFolder.mkFileIn("ignored-directory/ignored-file-in-ignored-dir.txt");
         gitFolder.mkFileIn("ignored-directory/not-ignored-file-in-ignored-dir.txt");
         gitFolder.appendToGitignore(
@@ -115,7 +115,7 @@ public abstract class GitIgnoreTestFrame {
         File rootDir = gitFolder.getRepoDirectory();
 
         gitFolder.mkFileIn("ignored-with-wildcard.txt");
-        gitFolder.mkdirIn("ignored-directory");
+        gitFolder.mkdir("ignored-directory");
         gitFolder.appendToGitignore("ignored-*\n");
 
         VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
@@ -127,7 +127,7 @@ public abstract class GitIgnoreTestFrame {
     @Test public void ignoresFilesWithinUnignoredDirectory() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
 
-        gitFolder.mkdirIn("not-ignored-directory");
+        gitFolder.mkdir("not-ignored-directory");
         gitFolder.mkFileIn("not-ignored-directory/not-ignored-file.txt");
         gitFolder.mkFileIn("not-ignored-directory/ignored-file.txt");
         gitFolder.appendToGitignore("not-ignored-directory/ignored-file.txt\n");
@@ -165,14 +165,138 @@ public abstract class GitIgnoreTestFrame {
         assertThat("ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
     }
 
-    // honours negation
-    // honours comments
-    // honours escaping comments
-    // ignores trailing spaces
-    // can escape negation
-    // can use regex meta characters
-    // removes ending slash from a pattern
-    // honours two asterisk for arbitrary depth (**)
+    @Test public void canIgnoreWithWildcardForDirectory() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+
+        gitFolder.mkdir("folder");
+        gitFolder.mkdir("folder/where");
+        gitFolder.mkdir("folder/where/some");
+        gitFolder.mkdir("folder/where/some/level");
+        gitFolder.mkdir("folder/where/some/level/is-ignored");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/ignored-file.txt");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/not-ignored-file.txt");
+        gitFolder.appendToGitignore("folder/where/some/level/*/ignored-file.txt");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("folder/where/some/level/is-ignored/ignored-file.txt", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("folder/where/some/level/is-ignored/not-ignored-file.txt", is(not(ignoredBy(gitIgnores, rootDir))));
+    }
+
+    @Test public void canIgnoreWithDoubleWildcardForArbitraryDepth() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+
+        gitFolder.mkdir("folder");
+        gitFolder.mkdir("folder/where");
+        gitFolder.mkdir("folder/where/some");
+        gitFolder.mkdir("folder/where/some/level");
+        gitFolder.mkdir("folder/where/some/level/is-ignored");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/ignored1.class");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/ignored2.class");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/not-ignored-file.java");
+        gitFolder.appendToGitignore("**.class");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("folder/where/some/level/is-ignored/ignored1.class", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("folder/where/some/level/is-ignored/ignored2.class", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("folder/where/some/level/is-ignored/not-ignored-file.java", is(not(ignoredBy(gitIgnores, rootDir))));
+    }
+
+    @Test public void canIgnoreWithDoubleWildcardForArbitraryDepthWithinADirectory() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+
+        gitFolder.mkdir("folder");
+        gitFolder.mkdir("folder/where");
+        gitFolder.mkdir("folder/where/some");
+        gitFolder.mkdir("folder/where/some/level");
+        gitFolder.mkdir("folder/where/some/level/is-ignored");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/ignored1.class");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/ignored2.class");
+        gitFolder.mkFileIn("folder/where/some/level/is-ignored/not-ignored-file.java");
+        gitFolder.appendToGitignore("folder/*/is-ignored/*.class");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("folder/where/some/level/is-ignored/ignored1.class", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("folder/where/some/level/is-ignored/ignored2.class", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("folder/where/some/level/is-ignored/not-ignored-file.java", is(not(ignoredBy(gitIgnores, rootDir))));
+    }
+
+    @Test public void canNegatePreviouslyIgnoredMatches() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+        gitFolder.mkdir("folder");
+        gitFolder.mkFileIn("folder/ignored-file.txt");
+        gitFolder.mkFileIn("folder/ignore-is-negated.txt");
+        gitFolder.appendToGitignore("folder/*");
+        gitFolder.appendToGitignore("!folder/ignore-is-negated.txt");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("folder/ignored-file.txt", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("folder/ignore-is-negated.txt", is(not(ignoredBy(gitIgnores, rootDir))));
+    }
+
+    @Test public void commentedEntriesAreNotUsed() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+        gitFolder.mkdir("folder");
+        gitFolder.mkFileIn("folder/ignore-is-commented.txt");
+        gitFolder.appendToGitignore("#folder/ignore-is-commented.txt");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("folder/ignore-is-commented.txt", is(not(ignoredBy(gitIgnores, rootDir))));
+    }
+
+    @Test public void negationAndCommentCanBeEscaped() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+        gitFolder.mkdir("!folder");
+        gitFolder.mkdir("#folder");
+        gitFolder.mkFileIn("!folder/ignored.txt");
+        gitFolder.mkFileIn("#folder/ignored.txt");
+        gitFolder.appendToGitignore("\\#folder/*");
+        gitFolder.appendToGitignore("\\!folder/*");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("#folder/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
+        assertThat("!folder/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
+    }
+
+
+    @Test public void globMetaCharactersCanBeEscaped() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+        String weirdDirName = "[^$.?]\\*folder";
+        gitFolder.mkdir(weirdDirName);
+        gitFolder.mkFileIn(weirdDirName + "/ignored.txt");
+        gitFolder.appendToGitignore("\\[\\^\\$\\.\\?\\]\\\\\\*folder/ignored.txt");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+        assertThat(weirdDirName +"/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
+    }
+
+    @Test public void regexMetaCharactersAreEscaped() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+        String weirdDirName = "()@+|%.$^folder";
+        gitFolder.mkdir(weirdDirName);
+        gitFolder.mkFileIn(weirdDirName + "/ignored.txt");
+        gitFolder.appendToGitignore("()@+|%.$^folder/*.txt");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+        assertThat(weirdDirName +"/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
+    }
+
+    @Test public void closerGitignoreFilesTakePrecedence() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+        gitFolder.mkdir("folder");
+        gitFolder.mkdir("folder/subfolder");
+        gitFolder.mkFileIn("folder/subfolder/ignored.txt");
+        gitFolder.appendToGitignore("folder/subfolder/*.txt");
+        gitFolder.appendToGitignore("!subfolder/*.txt", new File(gitFolder.getRepoDirectory(), "folder"));
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+        assertThat("folder/subfolder/ignored.txt", is(not(ignoredBy(gitIgnores, rootDir))));
+    }
 
     public static class VcsIgnoredMatcher extends TypeSafeDiagnosingMatcher<String> {
     	
@@ -213,8 +337,10 @@ public abstract class GitIgnoreTestFrame {
     }
 
     public static class GitFolder extends TemporaryFolder {
-        public void create() throws IOException {
-            super.create();
+
+        @Override
+        public void before() throws Throwable {
+            super.before();
 
             File rootDir = getRoot();
 
@@ -223,6 +349,11 @@ public abstract class GitIgnoreTestFrame {
             } catch (GitAPIException e) {
                 throw new IOException(e);
             }
+        }
+
+        @Override
+        protected void after() {
+//            super.after();
         }
 
         public File getRepoDirectory() {
@@ -236,9 +367,13 @@ public abstract class GitIgnoreTestFrame {
         }
 
         public void appendToGitignore(String gitignoreContent) throws IOException {
+            appendToGitignore(gitignoreContent, getRepoDirectory());
+        }
+
+        public void appendToGitignore(String gitignoreContent, File containingDirectory) throws IOException {
             Iterable<CharSequence> contents = Arrays.<CharSequence>asList(gitignoreContent.split("\n"));
             Files.write(
-                    Paths.get(new File(getRepoDirectory(), Constants.GITIGNORE_FILENAME).toURI()),
+                    Paths.get(new File(containingDirectory, Constants.GITIGNORE_FILENAME).toURI()),
                     contents,
                     Charset.forName("UTF-8"),
                     StandardOpenOption.APPEND,
@@ -250,7 +385,7 @@ public abstract class GitIgnoreTestFrame {
             assertTrue(new File(getRepoDirectory(), file).createNewFile());
         }
 
-        public void mkdirIn(String directory) {
+        public void mkdir(String directory) {
             assertTrue(new File(getRepoDirectory(), directory).mkdir());
         }
     }
