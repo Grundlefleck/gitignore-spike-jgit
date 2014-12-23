@@ -13,16 +13,16 @@ import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.NOT_IGNORED;
 import static org.eclipse.jgit.lib.Constants.GITIGNORE_FILENAME;
 
-public final class GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter implements VcsIgnores {
+public final class GitIgnoresWithJGit implements VcsIgnores {
 
 	private final File rootDirectory;
 
-	private GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter(File rootDirectory) {
+	private GitIgnoresWithJGit(File rootDirectory) {
 		this.rootDirectory = rootDirectory;
 	}
 
     public static VcsIgnores fromRootDir(String absolutePath) {
-        return new GitIgnoresByApplyingIgnoreRuleDirectlyOnFilter(new File(absolutePath));
+        return new GitIgnoresWithJGit(new File(absolutePath));
     }
 
 	@Override
