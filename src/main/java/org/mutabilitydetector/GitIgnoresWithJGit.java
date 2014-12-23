@@ -28,9 +28,10 @@ public final class GitIgnoresWithJGit implements VcsIgnores {
 	@Override
 	public boolean isIgnored(String fileToCheck) {
         File absolutePath = new File(rootDirectory, fileToCheck);
-        File directoryContainingFileToCheck = absolutePath.isDirectory() ? absolutePath : absolutePath.getParentFile();
+        boolean isDirectory = absolutePath.isDirectory();
+        File directoryContainingFileToCheck = isDirectory ? absolutePath : absolutePath.getParentFile();
         Iterator<File> pathSegments = createPathSegmentsFromRootTo(directoryContainingFileToCheck);
-		return descendInSearchOfGitIgnoreFile(new File(fileToCheck), pathSegments);
+		return descendInSearchOfGitIgnoreFile(new File(fileToCheck), pathSegments, isDirectory);
     }
 
     private Iterator<File> createPathSegmentsFromRootTo(File file) {
@@ -47,19 +48,26 @@ public final class GitIgnoresWithJGit implements VcsIgnores {
         return files.iterator();
     }
 
-    private boolean descendInSearchOfGitIgnoreFile(File fileToCheck, Iterator<File> pathSegments) {
+    private boolean descendInSearchOfGitIgnoreFile(File fileToCheck, Iterator<File> pathSegments, boolean isDirectory) {
         return pathSegments.hasNext()
-                ? checkAgainstCurrentGitIgnoreAndDescendIfNecessary(fileToCheck, pathSegments)
+                ? checkAgainstCurrentGitIgnoreAndDescendIfNecessary(fileToCheck, pathSegments, isDirectory)
                 : false;
     }
 
-    private boolean checkAgainstCurrentGitIgnoreAndDescendIfNecessary(File fileToCheck, Iterator<File> pathSegments) {
-        File currentGitIgnore = new File(pathSegments.next(), GITIGNORE_FILENAME);
+    private boolean checkAgainstCurrentGitIgnoreAndDescendIfNecessary(File fileToCheck, Iterator<File> pathSegments, boolean isDirectory) {
+
+        File current = pathSegments.next();
+
+        if (current.getName().equals(".git")) {
+            return true;
+        }
+
+        File currentGitIgnore = new File(current, GITIGNORE_FILENAME);
 
         if (currentGitIgnore.exists()) {
-            switch (getMatchResult(fileToCheck, currentGitIgnore)) {
+            switch (getMatchResult(fileToCheck, currentGitIgnore, isDirectory)) {
                 case CHECK_PARENT:
-                    return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments);
+                    return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
                 case IGNORED:
                     return true;
                 case NOT_IGNORED:
@@ -67,15 +75,15 @@ public final class GitIgnoresWithJGit implements VcsIgnores {
                     return false;
             }
         } else {
-            return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments);
+            return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
         }
     }
 
-    private MatchResult getMatchResult(File fileToCheck, File currentGitIgnore) {
+    private MatchResult getMatchResult(File fileToCheck, File currentGitIgnore, boolean isDirectory) {
         try (InputStream in = new FileInputStream(currentGitIgnore)) {
             IgnoreNode ignoreNode = new IgnoreNode();
             ignoreNode.parse(in);
-            return ignoreNode.isIgnored(fileToCheck.getPath(), fileToCheck.isDirectory());
+            return ignoreNode.isIgnored(fileToCheck.getPath(), isDirectory);
         } catch (IOException e) {
             return NOT_IGNORED;
         }

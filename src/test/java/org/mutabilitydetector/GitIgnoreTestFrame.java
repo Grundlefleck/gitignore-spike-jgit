@@ -88,11 +88,10 @@ public abstract class GitIgnoreTestFrame {
         File rootDir = gitFolder.getRepoDirectory();
 
         gitFolder.mkdirIn("ignored-directory");
-        gitFolder.appendToGitignore("ignored-directory/");
+        gitFolder.appendToGitignore("/ignored-directory/");
 
         VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
 
-        assertThat("ignored-directory/", is(ignoredBy(gitIgnores, rootDir)));
         assertThat("ignored-directory", is(ignoredBy(gitIgnores, rootDir)));
     }
 
@@ -155,13 +154,24 @@ public abstract class GitIgnoreTestFrame {
         assertThat(".git/config", is(ignoredBy(gitIgnores, rootDir)));
     }
 
+    @Test public void removesWhitespaceFromGitignoreEntries() throws Exception {
+        File rootDir = gitFolder.getRepoDirectory();
+
+        gitFolder.mkFileIn("ignored.txt");
+        gitFolder.appendToGitignore("     ignored.txt    \t\n");
+
+        VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
+
+        assertThat("ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
+    }
+
     // honours negation
     // honours comments
     // honours escaping comments
     // ignores trailing spaces
     // can escape negation
+    // can use regex meta characters
     // removes ending slash from a pattern
-    // ignores everything in .git directory
     // honours two asterisk for arbitrary depth (**)
 
     public static class VcsIgnoredMatcher extends TypeSafeDiagnosingMatcher<String> {

@@ -1,6 +1,6 @@
 package org.mutabilitydetector;
 
-import org.eclipse.jgit.ignore.IgnoreNode;
+import org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -14,8 +14,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Pattern;
 
+import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.CHECK_PARENT;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.NOT_IGNORED;
+import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.IGNORED;
 import static org.eclipse.jgit.lib.Constants.GITIGNORE_FILENAME;
 
 public class GitIgnoresByGlob implements VcsIgnores {
@@ -31,11 +34,12 @@ public class GitIgnoresByGlob implements VcsIgnores {
 
 
     @Override
-    public boolean isIgnored(String fileToCheck) {
-        File absolutePath = new File(rootDirectory, fileToCheck);
-        File directoryContainingFileToCheck = absolutePath.isDirectory() ? absolutePath : absolutePath.getParentFile();
+    public boolean isIgnored(String pathToCheck) {
+        File fileToCheck = new File(rootDirectory, pathToCheck);
+        boolean pathIsForDirectory = fileToCheck.isDirectory();
+        File directoryContainingFileToCheck = pathIsForDirectory ? fileToCheck : fileToCheck.getParentFile();
         Iterator<File> pathSegments = createPathSegmentsFromRootTo(directoryContainingFileToCheck);
-        return descendInSearchOfGitIgnoreFile(new File(fileToCheck), pathSegments);
+        return descendInSearchOfGitIgnoreFile(new File(pathToCheck), pathSegments, pathIsForDirectory);
     }
 
     private Iterator<File> createPathSegmentsFromRootTo(File file) {
@@ -52,19 +56,28 @@ public class GitIgnoresByGlob implements VcsIgnores {
         return files.iterator();
     }
 
-    private boolean descendInSearchOfGitIgnoreFile(File fileToCheck, Iterator<File> pathSegments) {
+    private boolean descendInSearchOfGitIgnoreFile(File fileToCheck, Iterator<File> pathSegments, boolean isDirectory) {
         return pathSegments.hasNext()
-                ? checkAgainstCurrentGitIgnoreAndDescendIfNecessary(fileToCheck, pathSegments)
+                ? checkAgainstCurrentGitIgnoreAndDescendIfNecessary(fileToCheck, pathSegments, isDirectory)
                 : false;
     }
 
-    private boolean checkAgainstCurrentGitIgnoreAndDescendIfNecessary(File fileToCheck, Iterator<File> pathSegments) {
-        File currentGitIgnore = new File(pathSegments.next(), GITIGNORE_FILENAME);
+    private boolean checkAgainstCurrentGitIgnoreAndDescendIfNecessary(
+            File fileToCheck,
+            Iterator<File> pathSegments,
+            boolean isDirectory) {
+
+        File current = pathSegments.next();
+        if (current.getName().equals(".git")) {
+            return true;
+        }
+
+        File currentGitIgnore = new File(current, GITIGNORE_FILENAME);
 
         if (currentGitIgnore.exists()) {
-            switch (getMatchResult(fileToCheck, currentGitIgnore)) {
+            switch (getMatchResult(fileToCheck, currentGitIgnore, isDirectory)) {
                 case CHECK_PARENT:
-                    return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments);
+                    return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
                 case IGNORED:
                     return true;
                 case NOT_IGNORED:
@@ -72,17 +85,23 @@ public class GitIgnoresByGlob implements VcsIgnores {
                     return false;
             }
         } else {
-            return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments);
+            return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
         }
     }
 
-    private IgnoreNode.MatchResult getMatchResult(File fileToCheck, File currentGitIgnore) {
+    private MatchResult getMatchResult(File fileToCheck, File currentGitIgnore, boolean isDirectory) {
         InputStream in = null;
         try {
             in = new FileInputStream(currentGitIgnore);
-            IgnoreNode ignoreNode = new IgnoreNode();
-            ignoreNode.parse(in);
-            return ignoreNode.isIgnored(fileToCheck.getPath(), fileToCheck.isDirectory());
+
+            List<IgnoreRule> ignoreEntries = ignoreEntries(in);
+
+            for (IgnoreRule rule: ignoreEntries) {
+                if (rule.matches(fileToCheck.getPath(), isDirectory)) {
+                    return IGNORED;
+                }
+            }
+            return CHECK_PARENT;
         } catch (IOException e) {
             return NOT_IGNORED;
         } finally {
@@ -105,18 +124,51 @@ public class GitIgnoresByGlob implements VcsIgnores {
         List<IgnoreRule> rules = new ArrayList<IgnoreRule>();
         String text;
         while ((text = br.readLine()) != null) {
-            text = text.trim();
-            if (text.length() > 0 && !text.startsWith("#") && !text.equals("/")) {
-                rules.add(new IgnoreRule(text));
-            }
+            rules.add(new IgnoreRule(text.trim()));
         }
         return rules;
     }
 
     private static final class IgnoreRule {
 
-        protected IgnoreRule(String text) {
+        private final boolean matchesDirectory;
+        private final String entry;
+        private final Pattern globPattern;
 
+        protected IgnoreRule(String text) {
+            this.matchesDirectory = text.endsWith("/");
+            this.entry = ensureStartingSlash(text);
+            this.globPattern = createPatternFrom(text);
+        }
+
+        private Pattern createPatternFrom(String text) {
+            return null;
+        }
+
+        public boolean matches(String path, boolean isDirectory) {
+            path = ensureStartingSlash(path);
+
+            if (this.matchesDirectory) {
+                if (!isDirectory) {
+                    return false;
+                } else {
+                    return ensureEndingSlash(path).startsWith(entry);
+                }
+            }
+
+            if (ensureStartingSlash(path).equals(entry)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        private String ensureStartingSlash(String path) {
+            return path.startsWith("/") ? path : "/" + path;
+        }
+
+        private String ensureEndingSlash(String path) {
+            return path.endsWith("/") ? path : path + "/";
         }
     }
 
