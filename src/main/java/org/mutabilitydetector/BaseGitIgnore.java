@@ -3,6 +3,7 @@ package org.mutabilitydetector;
 import org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 
 import java.io.File;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
@@ -59,10 +60,8 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         File currentGitIgnore = new File(current, GITIGNORE_FILENAME);
 
         if (currentGitIgnore.exists()) {
-            Path absolute = Paths.get(fileToCheck.getAbsolutePath());
-            Path base = Paths.get(current.getAbsolutePath());
-            Path relative = base.relativize(absolute);
-            switch (getMatchResult(relative.toFile(), currentGitIgnore, isDirectory)) {
+            URI relativeURI = current.toURI().relativize(fileToCheck.toURI());
+            switch (getMatchResult(relativeURI.getPath(), currentGitIgnore, isDirectory)) {
                 case CHECK_PARENT:
                     return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
                 case IGNORED:
@@ -76,5 +75,5 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         }
     }
 
-    protected abstract MatchResult getMatchResult(File fileToCheck, File currentGitIgnore, boolean isDirectory);
+    protected abstract MatchResult getMatchResult(String pathToCheck, File currentGitIgnore, boolean isDirectory);
 }

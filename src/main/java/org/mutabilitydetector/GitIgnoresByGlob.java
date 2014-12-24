@@ -31,7 +31,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
         return new GitIgnoresByGlob(new File(absolutePath));
     }
 
-    protected MatchResult getMatchResult(File fileToCheck, File currentGitIgnore, boolean isDirectory) {
+    protected MatchResult getMatchResult(String pathToCheck, File currentGitIgnore, boolean isDirectory) {
         InputStream in = null;
         try {
             in = new FileInputStream(currentGitIgnore);
@@ -39,7 +39,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             List<IgnoreRule> ignoreEntries = ignoreEntries(in);
 
             for (IgnoreRule rule: ignoreEntries) {
-                if (rule.matches(fileToCheck.getPath(), isDirectory)) {
+                if (rule.matches(pathToCheck, isDirectory)) {
                     return IGNORED;
                 }
             }

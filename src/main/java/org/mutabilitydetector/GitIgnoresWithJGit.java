@@ -20,11 +20,11 @@ public final class GitIgnoresWithJGit extends BaseGitIgnore {
         return new GitIgnoresWithJGit(new File(absolutePath));
     }
 
-    protected MatchResult getMatchResult(File fileToCheck, File currentGitIgnore, boolean isDirectory) {
+    protected MatchResult getMatchResult(String pathToCheck, File currentGitIgnore, boolean isDirectory) {
         try (InputStream in = new FileInputStream(currentGitIgnore)) {
             IgnoreNode ignoreNode = new IgnoreNode();
             ignoreNode.parse(in);
-            return ignoreNode.isIgnored(fileToCheck.getPath(), isDirectory);
+            return ignoreNode.isIgnored(pathToCheck, isDirectory);
         } catch (IOException e) {
             return NOT_IGNORED;
         }
