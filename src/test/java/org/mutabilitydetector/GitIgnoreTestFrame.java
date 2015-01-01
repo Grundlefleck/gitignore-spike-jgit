@@ -27,6 +27,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mutabilitydetector.GitIgnoreTestFrame.VcsIgnoredMatcher.ignoredBy;
 
+
+/*
+ * TODO:
+ *  - ensure doesn't attempt to do an exact match on directory when entry is a glob
+ */
 public abstract class GitIgnoreTestFrame {
 
     @Rule public TemporaryFolder folder = new TemporaryFolder();
@@ -112,7 +117,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat("ignored-directory/not-ignored-file-in-ignored-dir.txt", is(ignoredBy(gitIgnores, rootDir)));
     }
 
-    @Ignore public void ignoresFilesWithWildcard() throws Exception {
+    @Test public void ignoresFilesWithWildcard() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
 
         gitFolder.mkFileIn("ignored-with-wildcard.txt");
@@ -184,7 +189,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat("folder/where/some/level/is-ignored/not-ignored-file.txt", is(not(ignoredBy(gitIgnores, rootDir))));
     }
 
-    @Ignore public void canIgnoreWithDoubleWildcardForArbitraryDepth() throws Exception {
+    @Test public void canIgnoreWithDoubleWildcardForArbitraryDepth() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
 
         gitFolder.mkdir("folder");
@@ -204,7 +209,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat("folder/where/some/level/is-ignored/not-ignored-file.java", is(not(ignoredBy(gitIgnores, rootDir))));
     }
 
-    @Ignore public void canIgnoreWithDoubleWildcardForArbitraryDepthWithinADirectory() throws Exception {
+    @Test public void canIgnoreWithDoubleWildcardForArbitraryDepthWithinADirectory() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
 
         gitFolder.mkdir("folder");
@@ -224,7 +229,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat("folder/where/some/level/is-ignored/not-ignored-file.java", is(not(ignoredBy(gitIgnores, rootDir))));
     }
 
-    @Ignore public void canNegatePreviouslyIgnoredMatches() throws Exception {
+    @Test public void canNegatePreviouslyIgnoredMatches() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
         gitFolder.mkdir("folder");
         gitFolder.mkFileIn("folder/ignored-file.txt");
@@ -287,7 +292,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat(weirdDirName +"/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
     }
 
-    @Test public void closerGitignoreFilesTakePrecedence() throws Exception {
+    @Ignore public void closerGitignoreFilesTakePrecedence() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
         gitFolder.mkdir("folder");
         gitFolder.mkdir("folder/subfolder");

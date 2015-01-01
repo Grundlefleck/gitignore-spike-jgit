@@ -11,7 +11,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.CHECK_PARENT;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.NOT_IGNORED;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.IGNORED;
-import static org.eclipse.jgit.lib.Constants.GITIGNORE_FILENAME;
 
 public class GitIgnoresByGlob extends BaseGitIgnore {
 
@@ -37,18 +36,39 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             in = new FileInputStream(currentGitIgnore);
 
             List<IgnoreRule> ignoreEntries = ignoreEntries(in);
-
-            for (IgnoreRule rule: ignoreEntries) {
-                if (rule.matches(pathToCheck, isDirectory)) {
-                    return IGNORED;
-                }
-            }
-            return CHECK_PARENT;
+            List<MatchResult> allResults = getAllResults(pathToCheck, isDirectory, ignoreEntries);
+            return getLastRelevantResult(allResults);
         } catch (IOException e) {
             return NOT_IGNORED;
         } finally {
            closeQuietly(in);
         }
+    }
+
+    private List<MatchResult> getAllResults(String pathToCheck, boolean isDirectory, List<IgnoreRule> ignoreEntries) {
+        List<MatchResult> allResults = new ArrayList<>();
+        for (IgnoreRule rule: ignoreEntries) {
+            allResults.add(rule.matches(pathToCheck, isDirectory));
+        }
+        return allResults;
+    }
+
+    private MatchResult getLastRelevantResult(List<MatchResult> allResults) {
+        Deque<MatchResult> relevantResults = new LinkedList<>();
+        
+        for (MatchResult result: allResults) {
+            switch (result) {
+                case IGNORED:
+                case NOT_IGNORED:
+                    relevantResults.addFirst(result);
+                    break;
+                case CHECK_PARENT:
+                default:
+                    // Filter out
+            }
+        }
+
+        return relevantResults.isEmpty() ? CHECK_PARENT : relevantResults.getFirst();
     }
 
     private void closeQuietly(Closeable closeable) {
@@ -71,23 +91,71 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
         return rules;
     }
 
+    static interface GitIgnoreMatcher {
+        boolean matches(String path);
+    }
+
+    static final class GlobRegexMatcher implements GitIgnoreMatcher {
+
+        private final Pattern pattern;
+
+        GlobRegexMatcher(Pattern pattern) {
+            this.pattern = pattern;
+        }
+
+        @Override
+        public boolean matches(String path) {
+            return pattern.matcher(path).matches();
+        }
+    }
+
+    static GitIgnoreMatcher NEVER_MATCHES = new GitIgnoreMatcher() {
+        @Override
+        public boolean matches(String path) {
+            return false;
+        }
+    };
+
     private static final class IgnoreRule {
 
         private final boolean matchesDirectory;
         private final String entry;
-        private final Pattern globPattern;
+        private final GitIgnoreMatcher matcher;
+        private final boolean isGlob;
+        private final boolean isNegated;
 
-        protected IgnoreRule(String text) {
-            this.matchesDirectory = text.endsWith("/");
-            this.entry = ensureStartingSlash(text);
-            this.globPattern = createPatternFrom(text);
+        protected IgnoreRule(String entry) {
+            this.isNegated = entry.startsWith("!");
+            String withNegationStripped = isNegated ? entry.substring(1, entry.length()) : entry;
+            this.entry = ensureStartingSlash(withNegationStripped);
+            this.isGlob = entry.contains("*");
+            this.matchesDirectory = entry.endsWith("/");
+            this.matcher = isGlob ? createPatternFrom(this.entry): NEVER_MATCHES;
         }
 
-        private Pattern createPatternFrom(String text) {
-            return null;
+        private GitIgnoreMatcher createPatternFrom(String glob) {
+            StringBuilder regex = new StringBuilder();
+            for (char c: glob.toCharArray()) {
+                switch(c) {
+                    case '*': regex.append('.');
+                }
+
+                regex.append(c);
+            }
+            return new GlobRegexMatcher(Pattern.compile(regex.toString()));
         }
 
-        public boolean matches(String path, boolean isDirectory) {
+        public MatchResult matches(String path, boolean isDirectory) {
+            boolean matchesBeforeNegation = matchesBeforeNegation(path, isDirectory);
+
+            if (matchesBeforeNegation) {
+                return isNegated ? NOT_IGNORED : IGNORED;
+            } else {
+                return CHECK_PARENT;
+            }
+        }
+
+        private boolean matchesBeforeNegation(String path, boolean isDirectory) {
             path = ensureStartingSlash(path);
 
             if (this.matchesDirectory) {
@@ -98,11 +166,11 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
                 }
             }
 
-            if (ensureStartingSlash(path).equals(entry)) {
-                return true;
+            if (isGlob) {
+                return this.matcher.matches(path);
+            } else {
+                return ensureStartingSlash(path).equals(entry);
             }
-
-            return false;
         }
 
         private String ensureStartingSlash(String path) {
@@ -111,6 +179,12 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
         private String ensureEndingSlash(String path) {
             return path.endsWith("/") ? path : path + "/";
+        }
+
+        @Override
+        public String toString() {
+            return String.format("IgnoreRule[entry=%s, negated=%s, isGlob=%s, matchesDirectory=%s]",
+                    this.entry, this.isNegated, this.isGlob, this.matchesDirectory);
         }
     }
 
