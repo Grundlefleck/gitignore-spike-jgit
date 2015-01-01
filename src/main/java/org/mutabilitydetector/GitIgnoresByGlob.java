@@ -55,12 +55,12 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
     private MatchResult getLastRelevantResult(List<MatchResult> allResults) {
         Deque<MatchResult> relevantResults = new LinkedList<>();
-        
+
         for (MatchResult result: allResults) {
             switch (result) {
                 case IGNORED:
                 case NOT_IGNORED:
-                    relevantResults.addFirst(result);
+                    relevantResults.add(result);
                     break;
                 case CHECK_PARENT:
                 default:
@@ -68,7 +68,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             }
         }
 
-        return relevantResults.isEmpty() ? CHECK_PARENT : relevantResults.getFirst();
+        return relevantResults.isEmpty() ? CHECK_PARENT : relevantResults.getLast();
     }
 
     private void closeQuietly(Closeable closeable) {
