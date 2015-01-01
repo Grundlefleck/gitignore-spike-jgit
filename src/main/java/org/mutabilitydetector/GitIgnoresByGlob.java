@@ -37,6 +37,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
             List<IgnoreRule> ignoreEntries = ignoreEntries(in);
             List<MatchResult> allResults = getAllResults(pathToCheck, isDirectory, ignoreEntries);
+
             return getLastRelevantResult(allResults);
         } catch (IOException e) {
             return NOT_IGNORED;

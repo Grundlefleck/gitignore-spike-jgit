@@ -1,36 +1,25 @@
 package org.mutabilitydetector;
 
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
-import org.hamcrest.Description;
-import org.hamcrest.TypeSafeDiagnosingMatcher;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.mutabilitydetector.GitIgnoreTestFrame.VcsIgnoredMatcher.ignoredBy;
+import static org.mutabilitydetector.VcsIgnoredMatcher.ignoredBy;
 
 
 /*
  * TODO:
  *  - ensure doesn't attempt to do an exact match on directory when entry is a glob
+ *  - work with character classes e.g. [:alpha:]
+ *  - allow using '?' as a wildcard
+ *  - ensure a single * doesn't match multiple directory levels
  */
 public abstract class GitIgnoreTestFrame {
 
@@ -254,7 +243,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat("folder/ignore-is-commented.txt", is(not(ignoredBy(gitIgnores, rootDir))));
     }
 
-    @Ignore public void negationAndCommentCanBeEscaped() throws Exception {
+    @Test public void negationAndCommentCanBeEscaped() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
         gitFolder.mkdir("!folder");
         gitFolder.mkdir("#folder");
@@ -292,7 +281,7 @@ public abstract class GitIgnoreTestFrame {
         assertThat(weirdDirName +"/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
     }
 
-    @Ignore public void closerGitignoreFilesTakePrecedence() throws Exception {
+    @Test public void closerGitignoreFilesTakePrecedence() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
         gitFolder.mkdir("folder");
         gitFolder.mkdir("folder/subfolder");
@@ -304,95 +293,4 @@ public abstract class GitIgnoreTestFrame {
         assertThat("folder/subfolder/ignored.txt", is(not(ignoredBy(gitIgnores, rootDir))));
     }
 
-    public static class VcsIgnoredMatcher extends TypeSafeDiagnosingMatcher<String> {
-    	
-    	private final VcsIgnores vcsIgnores;
-        private final File rootDir;
-
-
-        public VcsIgnoredMatcher(VcsIgnores vcsIgnores, File rootDir) {
-			this.vcsIgnores = vcsIgnores;
-            this.rootDir = rootDir;
-        }
-		
-		public static VcsIgnoredMatcher ignoredBy(VcsIgnores vcsIgnores, File rootDir) {
-			return new VcsIgnoredMatcher(vcsIgnores, rootDir);
-		}
-
-		@Override
-		public void describeTo(Description description) {
-			description.appendText("a file that was ignored");
-		}
-
-		@Override
-		protected boolean matchesSafely(String item, Description mismatchDescription) {
-            Path path = Paths.get(rootDir.getAbsolutePath(), item);
-			if (!path.toFile().exists()) {
-				mismatchDescription.appendValue(item).appendText("did not exist as a file or directory");
-				return false;
-			}
-			boolean isIgnored = vcsIgnores.isIgnored(item);
-			
-			if (!isIgnored) {
-				mismatchDescription.appendValue(item).appendText(" was not ignored");
-			}
-			
-			return isIgnored;
-		}
-    	
-    }
-
-    public static class GitFolder extends TemporaryFolder {
-
-        @Override
-        public void before() throws Throwable {
-            super.before();
-
-            File rootDir = getRoot();
-
-            try {
-                initGitRepoIn(rootDir);
-            } catch (GitAPIException e) {
-                throw new IOException(e);
-            }
-        }
-
-        @Override
-        protected void after() {
-//            super.after();
-        }
-
-        public File getRepoDirectory() {
-            return getRoot();
-        }
-
-        private void initGitRepoIn(File rootDir) throws GitAPIException, IOException {
-            Git.init().setDirectory(rootDir).setBare(false).call();
-            Repository repository = FileRepositoryBuilder.create(new File(rootDir.getAbsolutePath(), ".git"));
-            repository.close();
-        }
-
-        public void appendToGitignore(String gitignoreContent) throws IOException {
-            appendToGitignore(gitignoreContent, getRepoDirectory());
-        }
-
-        public void appendToGitignore(String gitignoreContent, File containingDirectory) throws IOException {
-            Iterable<CharSequence> contents = Arrays.<CharSequence>asList(gitignoreContent.split("\n"));
-            Files.write(
-                    Paths.get(new File(containingDirectory, Constants.GITIGNORE_FILENAME).toURI()),
-                    contents,
-                    Charset.forName("UTF-8"),
-                    StandardOpenOption.APPEND,
-                    StandardOpenOption.CREATE);
-        }
-
-
-        public void mkFileIn(String file) throws IOException {
-            assertTrue(new File(getRepoDirectory(), file).createNewFile());
-        }
-
-        public void mkdir(String directory) {
-            assertTrue(new File(getRepoDirectory(), directory).mkdir());
-        }
-    }
 }
