@@ -91,10 +91,10 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             path = ensureStartingSlash(path);
 
             if (this.matchesDirectory) {
-                if (!isDirectory) {
-                    return false;
-                } else {
+                if (isDirectory) {
                     return ensureEndingSlash(path).startsWith(entry);
+                } else {
+                    return path.startsWith(entry);
                 }
             }
 
