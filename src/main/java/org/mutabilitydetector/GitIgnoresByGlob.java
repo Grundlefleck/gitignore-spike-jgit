@@ -136,9 +136,27 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
         private GitIgnoreMatcher createPatternFrom(String glob) {
             StringBuilder regex = new StringBuilder();
-            for (char c: glob.toCharArray()) {
+            for (int i = 0; i < glob.length(); i++) {
+                char c = glob.charAt(i);
+
                 switch(c) {
-                    case '*': regex.append('.');
+                    case '*':
+                        regex.append('.');
+                        break;
+                    case '.':
+                    case '$':
+                    case '(':
+                    case ')':
+                    case '|':
+                    case '+':
+                    case '^':
+                        regex.append('\\');
+                        break;
+                    case '\\':
+                        i++;
+                        char escaped = glob.charAt(i);
+                        regex.append('\\').append(escaped);
+                        continue;
                 }
 
                 regex.append(c);

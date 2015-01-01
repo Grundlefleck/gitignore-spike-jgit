@@ -20,6 +20,7 @@ import static org.mutabilitydetector.VcsIgnoredMatcher.ignoredBy;
  *  - work with character classes e.g. [:alpha:]
  *  - allow using '?' as a wildcard
  *  - ensure a single * doesn't match multiple directory levels
+ *  - test negation of a character class
  */
 public abstract class GitIgnoreTestFrame {
 
@@ -259,7 +260,7 @@ public abstract class GitIgnoreTestFrame {
     }
 
 
-    @Ignore public void globMetaCharactersCanBeEscaped() throws Exception {
+    @Test public void globMetaCharactersCanBeEscaped() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
         String weirdDirName = "[^$.?]\\*folder";
         gitFolder.mkdir(weirdDirName);
@@ -270,12 +271,12 @@ public abstract class GitIgnoreTestFrame {
         assertThat(weirdDirName +"/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
     }
 
-    @Ignore public void regexMetaCharactersAreEscaped() throws Exception {
+    @Test public void regexMetaCharactersAreEscaped() throws Exception {
         File rootDir = gitFolder.getRepoDirectory();
         String weirdDirName = "()@+|%.$^folder";
         gitFolder.mkdir(weirdDirName);
         gitFolder.mkFileIn(weirdDirName + "/ignored.txt");
-        gitFolder.appendToGitignore("()@+|%.$^folder/*.txt");
+        gitFolder.appendToGitignore(weirdDirName + "/*.txt");
 
         VcsIgnores gitIgnores = provideImplementation(rootDir.getAbsolutePath());
         assertThat(weirdDirName +"/ignored.txt", is(ignoredBy(gitIgnores, rootDir)));
