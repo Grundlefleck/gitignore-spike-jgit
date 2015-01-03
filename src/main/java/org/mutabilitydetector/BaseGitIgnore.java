@@ -1,39 +1,31 @@
 package org.mutabilitydetector;
 
-import org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
-
-import java.io.File;
-import java.net.URI;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.LinkedList;
 
-import static org.eclipse.jgit.lib.Constants.GITIGNORE_FILENAME;
-
 public abstract class BaseGitIgnore implements VcsIgnores {
-    protected final File rootDirectory;
+    protected final RepositoryRoot rootDirectory;
 
-    protected BaseGitIgnore(File rootDirectory) {
+    protected BaseGitIgnore(RepositoryRoot rootDirectory) {
         this.rootDirectory = rootDirectory;
     }
 
     @Override
     public boolean isIgnored(String pathToCheck) {
-        File fileToCheck = new File(rootDirectory, pathToCheck);
+        RepositoryFile fileToCheck = rootDirectory.fromPath(pathToCheck);
         boolean pathIsForDirectory = fileToCheck.isDirectory();
-        File directoryContainingFileToCheck = pathIsForDirectory ? fileToCheck : fileToCheck.getParentFile();
-        Iterator<File> pathSegments = createPathSegmentsFromRootTo(directoryContainingFileToCheck);
+        RepositoryFile directoryContainingFileToCheck = pathIsForDirectory ? fileToCheck : fileToCheck.getParent();
+        Iterator<RepositoryFile> pathSegments = createPathSegmentsFromRootTo(directoryContainingFileToCheck);
         return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, pathIsForDirectory);
     }
 
-    private Iterator<File> createPathSegmentsFromRootTo(File file) {
-        LinkedList<File> files = new LinkedList<File>();
-        File currentFile = file;
+    private Iterator<RepositoryFile> createPathSegmentsFromRootTo(RepositoryFile file) {
+        LinkedList<RepositoryFile> files = new LinkedList<>();
+        RepositoryFile currentFile = file;
         files.addFirst(currentFile);
 
-        while (currentFile.getParent() != null && !currentFile.equals(rootDirectory)) {
-            File parentFile = currentFile.getParentFile();
+        while (currentFile.getParent() != null && !currentFile.isRoot()) {
+            RepositoryFile parentFile = currentFile.getParent();
             files.addLast(parentFile);
             currentFile = parentFile;
         }
@@ -41,32 +33,32 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         return files.iterator();
     }
 
-    private boolean descendInSearchOfGitIgnoreFile(File fileToCheck, Iterator<File> pathSegments, boolean isDirectory) {
+    private boolean descendInSearchOfGitIgnoreFile(RepositoryFile fileToCheck, Iterator<RepositoryFile> pathSegments, boolean isDirectory) {
         return pathSegments.hasNext()
                 ? checkAgainstCurrentGitIgnoreAndDescendIfNecessary(fileToCheck, pathSegments, isDirectory)
                 : false;
     }
 
     private boolean checkAgainstCurrentGitIgnoreAndDescendIfNecessary(
-            File fileToCheck,
-            Iterator<File> pathSegments,
+            RepositoryFile fileToCheck,
+            Iterator<RepositoryFile> pathSegments,
             boolean isDirectory) {
 
-        File current = pathSegments.next();
-        if (current.getName().equals(".git")) {
+        RepositoryFile current = pathSegments.next();
+        if (current.isInternal()) {
             return true;
         }
 
-        File currentGitIgnore = new File(current, GITIGNORE_FILENAME);
+        IgnoreRules currentGitIgnore = current.getIgnoreRules();
 
         if (currentGitIgnore.exists()) {
-            URI relativeURI = current.toURI().relativize(fileToCheck.toURI());
-            switch (getMatchResult(relativeURI.getPath(), currentGitIgnore, isDirectory)) {
-                case CHECK_PARENT:
+            RepositoryFile relativeFile = current.relativize(fileToCheck);
+            switch (getMatchResult(relativeFile.getPath(), currentGitIgnore, isDirectory)) {
+                case DOES_NOT_MATCH:
                     return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
-                case IGNORED:
+                case IS_IGNORED:
                     return true;
-                case NOT_IGNORED:
+                case IS_NOT_IGNORED:
                 default:
                     return false;
             }
@@ -75,5 +67,7 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         }
     }
 
-    protected abstract MatchResult getMatchResult(String pathToCheck, File currentGitIgnore, boolean isDirectory);
+    protected abstract IgnoreRuleMatch getMatchResult(String pathToCheck, IgnoreRules currentGitIgnore, boolean isDirectory);
+
+
 }

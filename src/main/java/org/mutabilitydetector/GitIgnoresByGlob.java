@@ -1,96 +1,65 @@
 package org.mutabilitydetector;
 
-import org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 
-import java.io.BufferedReader;
-import java.io.Closeable;
+import org.mutabilitydetector.IgnoreRules.FailedToRetrieveIgnoreRules;
+
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.CHECK_PARENT;
-import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.NOT_IGNORED;
-import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.IGNORED;
+import static org.mutabilitydetector.IgnoreRuleMatch.DOES_NOT_MATCH;
+import static org.mutabilitydetector.IgnoreRuleMatch.IS_NOT_IGNORED;
 
 public class GitIgnoresByGlob extends BaseGitIgnore {
 
-    public GitIgnoresByGlob(File rootDirectory) {
+    public GitIgnoresByGlob(RepositoryRoot rootDirectory) {
         super(rootDirectory);
     }
 
     public static VcsIgnores fromRootDir(String absolutePath) {
-        return new GitIgnoresByGlob(new File(absolutePath));
+        return new GitIgnoresByGlob(FileBasedGitIgnore.root(new File(absolutePath)));
     }
 
-    protected MatchResult getMatchResult(String pathToCheck, File currentGitIgnore, boolean isDirectory) {
-        InputStream in = null;
+    protected IgnoreRuleMatch getMatchResult(String pathToCheck, IgnoreRules currentGitIgnore, boolean isDirectory) {
         try {
-            in = new FileInputStream(currentGitIgnore);
-
-            List<IgnoreRule> ignoreEntries = ignoreEntries(in);
-            List<MatchResult> allResults = getAllResults(pathToCheck, isDirectory, ignoreEntries);
+            List<IgnoreRule> ignoreEntries = currentGitIgnore.rules();4n9rygQHrT4UXzIAjwgn
+            List<IgnoreRuleMatch> allResults = getAllResults(pathToCheck, isDirectory, ignoreEntries);
 
             return getLastRelevantResult(allResults);
-        } catch (IOException e) {
-            return NOT_IGNORED;
-        } finally {
-           closeQuietly(in);
+        } catch (FailedToRetrieveIgnoreRules e) {
+            return IS_NOT_IGNORED;
         }
     }
 
-    private List<MatchResult> getAllResults(String pathToCheck, boolean isDirectory, List<IgnoreRule> ignoreEntries) {
-        List<MatchResult> allResults = new ArrayList<>();
+    private List<IgnoreRuleMatch> getAllResults(String pathToCheck, boolean isDirectory, List<IgnoreRule> ignoreEntries) {
+        List<IgnoreRuleMatch> allResults = new ArrayList<>();
         for (IgnoreRule rule: ignoreEntries) {
-            allResults.add(rule.matches(pathToCheck, isDirectory));
+            allResults.add(rule.check(pathToCheck, isDirectory));
         }
         return allResults;
     }
 
-    private MatchResult getLastRelevantResult(List<MatchResult> allResults) {
-        Deque<MatchResult> relevantResults = new LinkedList<>();
+    private IgnoreRuleMatch getLastRelevantResult(List<IgnoreRuleMatch> allResults) {
+        Deque<IgnoreRuleMatch> relevantResults = new LinkedList<>();
 
-        for (MatchResult result: allResults) {
+        for (IgnoreRuleMatch result: allResults) {
             switch (result) {
-                case IGNORED:
-                case NOT_IGNORED:
+                case IS_IGNORED:
+                case IS_NOT_IGNORED:
                     relevantResults.add(result);
                     break;
-                case CHECK_PARENT:
+                case DOES_NOT_MATCH:
                 default:
                     // Filter out
             }
         }
 
-        return relevantResults.isEmpty() ? CHECK_PARENT : relevantResults.getLast();
+        return relevantResults.isEmpty() ? DOES_NOT_MATCH : relevantResults.getLast();
     }
 
-    private void closeQuietly(Closeable closeable) {
-        try {
-            if (closeable != null) {
-                closeable.close();
-            }
-        } catch (IOException e) {
-            // Ignore, as with Apache Commons IOUtils.closeQuietly.
-        }
-    }
-
-    private static List<IgnoreRule> ignoreEntries(InputStream input) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(input, Charset.forName("UTF-8")));
-        List<IgnoreRule> rules = new ArrayList<IgnoreRule>();
-        String text;
-        while ((text = br.readLine()) != null) {
-            rules.add(new IgnoreRule(text.trim()));
-        }
-        return rules;
-    }
 
     static interface GitIgnoreMatcher {
         boolean matches(String path);
@@ -117,7 +86,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
         }
     };
 
-    private static final class IgnoreRule {
+    public static final class GitIgnoreRule implements IgnoreRule {
 
         private final boolean matchesDirectory;
         private final String entry;
@@ -125,7 +94,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
         private final boolean isGlob;
         private final boolean isNegated;
 
-        protected IgnoreRule(String entry) {
+        protected GitIgnoreRule(String entry) {
             this.isNegated = entry.startsWith("!");
             String withNegationStripped = isNegated ? entry.substring(1, entry.length()) : entry;
             this.entry = ensureStartingSlash(withNegationStripped);
@@ -164,13 +133,14 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             return new GlobRegexMatcher(Pattern.compile(regex.toString()));
         }
 
-        public MatchResult matches(String path, boolean isDirectory) {
+        @Override
+        public IgnoreRuleMatch check(String path, boolean isDirectory) {
             boolean matchesBeforeNegation = matchesBeforeNegation(path, isDirectory);
 
             if (matchesBeforeNegation) {
-                return isNegated ? NOT_IGNORED : IGNORED;
+                return isNegated ? IgnoreRuleMatch.IS_NOT_IGNORED : IgnoreRuleMatch.IS_IGNORED;
             } else {
-                return CHECK_PARENT;
+                return IgnoreRuleMatch.DOES_NOT_MATCH;
             }
         }
 
@@ -205,6 +175,8 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             return String.format("IgnoreRule[entry=%s, negated=%s, isGlob=%s, matchesDirectory=%s]",
                     this.entry, this.isNegated, this.isGlob, this.matchesDirectory);
         }
+
+
     }
 
 }
