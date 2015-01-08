@@ -58,7 +58,8 @@ public final class FileBasedGitIgnore {
 
         @Override
         public boolean isInternal() {
-            return false;
+            String relativePath = getRepositoryRelativePath();
+            return relativePath.equals(".git") || relativePath.startsWith(".git/");
         }
     }
 
@@ -81,6 +82,11 @@ public final class FileBasedGitIgnore {
         @Override
         public String getRepositoryRelativePath() {
             return "/";
+        }
+
+        @Override
+        public boolean isInternal() {
+            return false;
         }
     }
 
