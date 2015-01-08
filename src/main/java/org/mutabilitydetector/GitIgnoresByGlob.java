@@ -25,7 +25,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
     protected IgnoreRuleMatch getMatchResult(String pathToCheck, IgnoreRules currentGitIgnore, boolean isDirectory) {
         try {
-            List<IgnoreRule> ignoreEntries = currentGitIgnore.rules();4n9rygQHrT4UXzIAjwgn
+            List<IgnoreRule> ignoreEntries = currentGitIgnore.rules();
             List<IgnoreRuleMatch> allResults = getAllResults(pathToCheck, isDirectory, ignoreEntries);
 
             return getLastRelevantResult(allResults);
@@ -131,6 +131,11 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
                 regex.append(c);
             }
             return new GlobRegexMatcher(Pattern.compile(regex.toString()));
+        }
+
+        @Override
+        public String definition() {
+            return entry;
         }
 
         @Override
