@@ -43,9 +43,7 @@ public final class FileBasedGitIgnore {
 
         @Override
         public String getRepositoryRelativePath() {
-            String path = rootDirectory.toURI().relativize(file.toURI()).getPath();
-            System.out.println("Relative path: " + path);
-            return path;
+            return rootDirectory.toURI().relativize(file.toURI()).getPath();
         }
 
         @Override
