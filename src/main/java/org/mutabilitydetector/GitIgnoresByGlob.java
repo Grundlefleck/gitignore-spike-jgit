@@ -88,6 +88,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
     public static final class GitIgnoreRule implements IgnoreRule {
 
+        private final String definition;
         private final boolean matchesDirectory;
         private final String entry;
         private final GitIgnoreMatcher matcher;
@@ -95,6 +96,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
         private final boolean isNegated;
 
         protected GitIgnoreRule(String entry) {
+            this.definition = entry;
             this.isNegated = entry.startsWith("!");
             String withNegationStripped = isNegated ? entry.substring(1, entry.length()) : entry;
             this.entry = ensureStartingSlash(withNegationStripped);
@@ -135,7 +137,7 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
 
         @Override
         public String definition() {
-            return entry;
+            return definition;
         }
 
         @Override
