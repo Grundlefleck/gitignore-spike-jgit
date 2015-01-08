@@ -1,6 +1,6 @@
 package org.mutabilitydetector;
 
-import org.eclipse.jgit.ignore.*;
+import org.eclipse.jgit.ignore.IgnoreNode;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -11,7 +11,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.*;
 
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult;
 import static org.eclipse.jgit.ignore.IgnoreNode.MatchResult.CHECK_PARENT;

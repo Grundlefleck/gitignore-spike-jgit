@@ -24,7 +24,7 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         RepositoryFile currentFile = file;
         files.addFirst(currentFile);
 
-        while (currentFile.getParent() != null && !currentFile.isRoot()) {
+        while (!currentFile.isRoot()) {
             RepositoryFile parentFile = currentFile.getParent();
             files.addLast(parentFile);
             currentFile = parentFile;
@@ -52,8 +52,7 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         IgnoreRules currentGitIgnore = current.getIgnoreRules();
 
         if (currentGitIgnore.exists()) {
-            RepositoryFile relativeFile = current.relativize(fileToCheck);
-            switch (getMatchResult(relativeFile.getPath(), currentGitIgnore, isDirectory)) {
+            switch (getMatchResult(fileToCheck.getRepositoryRelativePath(), currentGitIgnore, isDirectory)) {
                 case DOES_NOT_MATCH:
                     return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
                 case IS_IGNORED:

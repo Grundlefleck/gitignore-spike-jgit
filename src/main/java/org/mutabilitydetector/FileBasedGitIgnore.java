@@ -13,8 +13,6 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.mutabilitydetector.IgnoreRuleMatch.IS_NOT_IGNORED;
-
 public final class FileBasedGitIgnore {
     private FileBasedGitIgnore() {}
 
@@ -24,14 +22,18 @@ public final class FileBasedGitIgnore {
 
     public static class GitRepositoryFile implements RepositoryFile {
         protected final File file;
+        private final File rootDirectory;
 
-        public GitRepositoryFile(File file) {
+        public GitRepositoryFile(File file, File rootDirectory) {
             this.file = file;
+            this.rootDirectory = rootDirectory;
         }
 
         @Override
         public RepositoryFile getParent() {
-            return new GitRepositoryFile(file.getParentFile());
+            return file.getParentFile().equals(rootDirectory)
+                ? new GitRepositoryRoot(rootDirectory)
+                : new GitRepositoryFile(file.getParentFile(), rootDirectory);
         }
 
         @Override
@@ -40,18 +42,15 @@ public final class FileBasedGitIgnore {
         }
 
         @Override
-        public RepositoryFile relativize(RepositoryFile descendant) {
-            return null;
-        }
-
-        @Override
-        public String getPath() {
-            return null;
+        public String getRepositoryRelativePath() {
+            String path = rootDirectory.toURI().relativize(file.toURI()).getPath();
+            System.out.println("Relative path: " + path);
+            return path;
         }
 
         @Override
         public boolean isDirectory() {
-            return false;
+            return file.isDirectory();
         }
 
         @Override
@@ -68,12 +67,22 @@ public final class FileBasedGitIgnore {
     public static final class GitRepositoryRoot extends GitRepositoryFile implements RepositoryRoot {
 
         public GitRepositoryRoot(File rootDirectory) {
-            super(rootDirectory);
+            super(rootDirectory, rootDirectory);
         }
 
         @Override
-        public RepositoryFile fromPath(String path) {
-            return new GitRepositoryFile(new File(file, path));
+        public GitRepositoryFile fromPath(String path) {
+            return new GitRepositoryFile(new File(file, path), this.file);
+        }
+
+        @Override
+        public boolean isRoot() {
+            return true;
+        }
+
+        @Override
+        public String getRepositoryRelativePath() {
+            return "/";
         }
     }
 
@@ -94,6 +103,7 @@ public final class FileBasedGitIgnore {
         public List<IgnoreRule> rules() throws FailedToRetrieveIgnoreRules {
             InputStream in = null;
             try {
+                in = new FileInputStream(dotGitignoreFile);
                 return ignoreEntries(in);
             } catch (IOException e) {
                 throw new FailedToRetrieveIgnoreRules(e);
