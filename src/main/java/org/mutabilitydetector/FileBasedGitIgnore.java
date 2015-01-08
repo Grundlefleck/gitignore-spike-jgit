@@ -47,6 +47,11 @@ public final class FileBasedGitIgnore {
         }
 
         @Override
+        public String pathRelativeTo(RepositoryFile ancestor) {
+            return ((GitRepositoryFile) ancestor).file.toURI().relativize(file.toURI()).getPath();
+        }
+
+        @Override
         public boolean isDirectory() {
             return file.isDirectory();
         }

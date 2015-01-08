@@ -52,7 +52,7 @@ public abstract class BaseGitIgnore implements VcsIgnores {
         IgnoreRules currentGitIgnore = current.getIgnoreRules();
 
         if (currentGitIgnore.exists()) {
-            switch (getMatchResult(fileToCheck.getRepositoryRelativePath(), currentGitIgnore, isDirectory)) {
+            switch (getMatchResult(fileToCheck.pathRelativeTo(current), currentGitIgnore, isDirectory)) {
                 case DOES_NOT_MATCH:
                     return descendInSearchOfGitIgnoreFile(fileToCheck, pathSegments, isDirectory);
                 case IS_IGNORED:

@@ -28,6 +28,10 @@ public class GitIgnoresByGlob extends BaseGitIgnore {
             List<IgnoreRule> ignoreEntries = currentGitIgnore.rules();
             List<IgnoreRuleMatch> allResults = getAllResults(pathToCheck, isDirectory, ignoreEntries);
 
+            System.out.println(pathToCheck);
+            System.out.println(ignoreEntries);
+            System.out.println(allResults);
+
             return getLastRelevantResult(allResults);
         } catch (FailedToRetrieveIgnoreRules e) {
             return IS_NOT_IGNORED;
